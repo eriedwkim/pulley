@@ -1,0 +1,547 @@
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>도르래 원리 시뮬레이션</title>
+<style>
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 20px;
+  font-family: Arial, "Malgun Gothic", sans-serif;
+  background: #f2f5f9;
+  color: #202b3c;
+}
+
+.container {
+  max-width: 850px;
+  margin: auto;
+  background: white;
+  padding: 22px;
+  border-radius: 16px;
+  box-shadow: 0 4px 18px #00000012;
+}
+
+h1 {
+  text-align: center;
+  font-size: 25px;
+  margin-top: 0;
+}
+
+.description {
+  text-align: center;
+  color: #64748b;
+  line-height: 1.6;
+}
+
+.controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin: 22px 0;
+}
+
+.field label {
+  display: block;
+  font-weight: bold;
+  margin-bottom: 7px;
+}
+
+input, select {
+  width: 100%;
+  padding: 11px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 16px;
+  background: white;
+}
+
+button {
+  width: 100%;
+  border: none;
+  border-radius: 9px;
+  padding: 14px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  margin-top: 8px;
+}
+
+#liftButton {
+  background: #2563eb;
+  color: white;
+}
+
+#resetButton {
+  background: #e2e8f0;
+  color: #1e293b;
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.canvas-wrap {
+  width: 100%;
+  margin-top: 20px;
+  border: 1px solid #dbe3ee;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #f8fafc;
+}
+
+canvas {
+  width: 100%;
+  display: block;
+}
+
+.results {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.result {
+  background: #f1f5f9;
+  border-radius: 10px;
+  padding: 14px;
+}
+
+.result span {
+  display: block;
+  color: #64748b;
+  font-size: 13px;
+  margin-bottom: 7px;
+}
+
+.result strong {
+  font-size: 20px;
+  overflow-wrap: anywhere;
+}
+
+.explanation {
+  background: #eff6ff;
+  border-radius: 10px;
+  padding: 15px;
+  line-height: 1.8;
+  margin-top: 18px;
+}
+
+.note {
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+@media (max-width: 500px) {
+  body { padding: 10px; }
+  .container { padding: 15px; }
+  h1 { font-size: 22px; }
+  .controls { grid-template-columns: 1fr; }
+  .result strong { font-size: 18px; }
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+  <h1>도르래 원리 시뮬레이션</h1>
+  <p class="description">
+    도르래 종류에 따른 필요한 힘과 줄의 길이를 비교해 보세요.
+  </p>
+
+  <div class="controls">
+    <div class="field">
+      <label for="type">도르래 종류</label>
+      <select id="type">
+        <option value="1">고정도르래 (1:1)</option>
+        <option value="2">움직도르래 (1:2)</option>
+        <option value="2">복합도르래 (1:2)</option>
+        <option value="3">복합도르래 (1:3)</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="mass">물체의 질량 (kg)</label>
+      <input id="mass" type="number" min="1" max="10000" value="100">
+    </div>
+
+    <div class="field">
+      <label for="gravity">중력가속도 (m/s²)</label>
+      <input id="gravity" type="number" min="0.1" max="30" step="0.1" value="9.8">
+    </div>
+
+    <div class="field">
+      <label for="efficiency">도르래 효율 (%)</label>
+      <input id="efficiency" type="number" min="1" max="100" value="100">
+    </div>
+
+    <div class="field">
+      <label for="height">물체의 상승 높이 (m)</label>
+      <input id="height" type="number" min="0.1" max="10" step="0.1" value="2">
+    </div>
+
+    <div class="field">
+      <label for="speed">줄을 당기는 속도 (m/s)</label>
+      <input id="speed" type="number" min="0.1" max="5" step="0.1" value="1">
+    </div>
+  </div>
+
+  <button id="liftButton">줄 당기기 · 끝까지 올리기</button>
+  <button id="resetButton">처음 상태로 되돌리기</button>
+
+  <div class="canvas-wrap">
+    <canvas id="scene" width="800" height="460"></canvas>
+  </div>
+
+  <div class="results">
+    <div class="result">
+      <span>물체에 작용하는 중력</span>
+      <strong id="weight">980 N</strong>
+    </div>
+    <div class="result">
+      <span>필요한 당기는 힘</span>
+      <strong id="force">980 N</strong>
+    </div>
+    <div class="result">
+      <span>당겨야 하는 줄의 길이</span>
+      <strong id="ropeLength">2.00 m</strong>
+    </div>
+    <div class="result">
+      <span>물체의 상승 높이</span>
+      <strong id="currentHeight">0.00 / 2.00 m</strong>
+    </div>
+  </div>
+
+  <div class="explanation" id="explanation"></div>
+
+  <p class="note">
+    ※ 이상적인 도르래는 마찰과 줄의 질량을 무시합니다.
+    효율을 낮추면 실제 필요한 힘이 증가합니다.
+    시뮬레이션 그림은 원리를 이해하기 위한 개략도입니다.
+  </p>
+</div>
+
+<script>
+const canvas = document.getElementById("scene");
+const ctx = canvas.getContext("2d");
+
+const typeInput = document.getElementById("type");
+const massInput = document.getElementById("mass");
+const gravityInput = document.getElementById("gravity");
+const efficiencyInput = document.getElementById("efficiency");
+const heightInput = document.getElementById("height");
+const speedInput = document.getElementById("speed");
+
+const liftButton = document.getElementById("liftButton");
+const resetButton = document.getElementById("resetButton");
+
+let lifted = 0;
+let animationId = null;
+let moving = false;
+let lastTime = 0;
+
+const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
+
+function getValues() {
+  const ratio = Number(typeInput.value);
+  const mass = clamp(Number(massInput.value) || 100, 1, 10000);
+  const gravity = clamp(Number(gravityInput.value) || 9.8, 0.1, 30);
+  const efficiency = clamp(Number(efficiencyInput.value) || 100, 1, 100) / 100;
+  const height = clamp(Number(heightInput.value) || 2, 0.1, 10);
+  const speed = clamp(Number(speedInput.value) || 1, 0.1, 5);
+
+  return { ratio, mass, gravity, efficiency, height, speed };
+}
+
+function updateResults() {
+  const v = getValues();
+  const weight = v.mass * v.gravity;
+  const force = weight / v.ratio / v.efficiency;
+  const ropeLength = v.height * v.ratio;
+
+  document.getElementById("weight").textContent =
+    weight.toFixed(1) + " N";
+
+  document.getElementById("force").textContent =
+    force.toFixed(1) + " N";
+
+  document.getElementById("ropeLength").textContent =
+    ropeLength.toFixed(2) + " m";
+
+  document.getElementById("currentHeight").textContent =
+    lifted.toFixed(2) + " / " + v.height.toFixed(2) + " m";
+
+  const typeName = typeInput.options[typeInput.selectedIndex].text;
+
+  document.getElementById("explanation").innerHTML =
+    "<strong>" + typeName + "</strong><br>" +
+    "물체의 무게: " + weight.toFixed(1) + " N<br>" +
+    "필요한 당기는 힘: " + force.toFixed(1) + " N<br>" +
+    "필요한 줄의 길이: " + ropeLength.toFixed(2) + " m<br>" +
+    "이상적인 경우, 줄을 당기는 거리가 길어질수록 " +
+    "필요한 힘은 작아집니다.";
+
+  drawScene();
+}
+
+function drawPulley(x, y, radius, movable) {
+  ctx.beginPath();
+  ctx.arc(x, y, radius, 0, Math.PI * 2);
+  ctx.fillStyle = movable ? "#dbeafe" : "#e2e8f0";
+  ctx.fill();
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = "#475569";
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(x, y, 5, 0, Math.PI * 2);
+  ctx.fillStyle = "#334155";
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.moveTo(x - radius + 3, y);
+  ctx.lineTo(x + radius - 3, y);
+  ctx.strokeStyle = "#64748b";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+}
+
+function drawScene() {
+  const v = getValues();
+  const w = canvas.width;
+  const h = canvas.height;
+
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = "#f8fafc";
+  ctx.fillRect(0, 0, w, h);
+
+  // 천장과 고정 지지대
+  ctx.fillStyle = "#64748b";
+  ctx.fillRect(60, 45, 680, 12);
+
+  ctx.fillStyle = "#94a3b8";
+  for (let x = 70; x < 740; x += 25) {
+    ctx.fillRect(x, 57, 3, 13);
+  }
+
+  const topY = 110;
+  const bottomY = 355;
+  const travel = bottomY - topY;
+  const objectY = bottomY - (lifted / v.height) * travel;
+
+  const isFixed = v.ratio === 1;
+  const pulleyX = 330;
+  const radius = 32;
+
+  ctx.font = "bold 17px Arial";
+  ctx.fillStyle = "#334155";
+  ctx.textAlign = "left";
+  ctx.fillText(
+    typeInput.options[typeInput.selectedIndex].text,
+    28, 28
+  );
+
+  // 고정도르래
+  if (isFixed) {
+    drawPulley(pulleyX, 95, radius, false);
+
+    // 줄의 양쪽
+    ctx.beginPath();
+    ctx.moveTo(pulleyX - radius, 95);
+    ctx.lineTo(pulleyX - radius, objectY);
+    ctx.moveTo(pulleyX + radius, 95);
+    ctx.lineTo(pulleyX + radius, 145);
+    ctx.strokeStyle = "#d97706";
+    ctx.lineWidth = 4;
+    ctx.stroke();
+
+    // 당기는 방향 표시
+    ctx.beginPath();
+    ctx.moveTo(pulleyX + radius, 145);
+    ctx.lineTo(pulleyX + radius, 180);
+    ctx.stroke();
+
+    ctx.fillStyle = "#92400e";
+    ctx.fillText("당기는 줄", pulleyX + radius + 12, 175);
+  } else {
+    // 복합도르래의 위쪽 고정 지점
+    const fixedX = pulleyX - 60;
+
+    ctx.fillStyle = "#64748b";
+    ctx.fillRect(fixedX - 8, 70, 16, 9);
+
+    // 줄의 수를 표현하는 여러 가닥
+    const strands = v.ratio;
+
+    for (let i = 0; i < strands; i++) {
+      const x = pulleyX - radius + (2 * radius * i / Math.max(1, strands - 1));
+      const anchorX = fixedX + (i % 2) * 20;
+
+      ctx.beginPath();
+
+      if (i === strands - 1) {
+        ctx.moveTo(pulleyX + radius, 95);
+        ctx.lineTo(pulleyX + radius, 150);
+      } else {
+        ctx.moveTo(anchorX, 80);
+        ctx.lineTo(x, objectY - 12);
+      }
+
+      ctx.strokeStyle = "#d97706";
+      ctx.lineWidth = 3;
+      ctx.stroke();
+    }
+
+    drawPulley(pulleyX, objectY - 15, radius, true);
+
+    // 당기는 줄
+    ctx.beginPath();
+    ctx.moveTo(pulleyX + radius, 95);
+    ctx.lineTo(pulleyX + radius, 145);
+    ctx.strokeStyle = "#d97706";
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    ctx.fillStyle = "#92400e";
+    ctx.fillText("당기는 줄", pulleyX + radius + 12, 140);
+  }
+
+  // 물체와 연결 고리
+  ctx.strokeStyle = "#475569";
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(pulleyX, objectY + (isFixed ? 0 : radius));
+  ctx.lineTo(pulleyX, objectY + 28);
+  ctx.stroke();
+
+  const boxY = objectY + 28;
+
+  ctx.fillStyle = "#2563eb";
+  ctx.fillRect(pulleyX - 58, boxY, 116, 58);
+
+  ctx.strokeStyle = "#1d4ed8";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(pulleyX - 58, boxY, 116, 58);
+
+  ctx.fillStyle = "white";
+  ctx.textAlign = "center";
+  ctx.font = "bold 17px Arial";
+  ctx.fillText(v.mass + " kg", pulleyX, boxY + 35);
+
+  // 상승 방향
+  ctx.beginPath();
+  ctx.moveTo(560, bottomY - 15);
+  ctx.lineTo(560, topY + 15);
+  ctx.strokeStyle = "#16a34a";
+  ctx.lineWidth = 4;
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(548, topY + 28);
+  ctx.lineTo(560, topY + 10);
+  ctx.lineTo(572, topY + 28);
+  ctx.strokeStyle = "#16a34a";
+  ctx.lineWidth = 4;
+  ctx.stroke();
+
+  ctx.fillStyle = "#166534";
+  ctx.textAlign = "left";
+  ctx.font = "bold 16px Arial";
+  ctx.fillText("상승 방향", 580, 100);
+
+  // 바닥선
+  ctx.beginPath();
+  ctx.moveTo(80, bottomY + 90);
+  ctx.lineTo(720, bottomY + 90);
+  ctx.strokeStyle = "#94a3b8";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  ctx.fillStyle = "#64748b";
+  ctx.font = "14px Arial";
+  ctx.fillText("물체의 상승 높이: " + lifted.toFixed(2) + " m", 28, 435);
+}
+
+function stopAnimation() {
+  moving = false;
+  if (animationId !== null) {
+    cancelAnimationFrame(animationId);
+    animationId = null;
+  }
+  liftButton.disabled = false;
+  liftButton.textContent = "줄 당기기 · 끝까지 올리기";
+}
+
+function liftAll() {
+  if (moving) return;
+
+  const v = getValues();
+
+  if (lifted >= v.height) {
+    return;
+  }
+
+  moving = true;
+  lastTime = 0;
+  liftButton.disabled = true;
+  liftButton.textContent = "올라가는 중...";
+
+  function step(timestamp) {
+    if (!moving) return;
+
+    if (lastTime === 0) lastTime = timestamp;
+    const delta = Math.min((timestamp - lastTime) / 1000, 0.05);
+    lastTime = timestamp;
+
+    // 한 번 누르면 물체가 설정한 높이까지 상승
+    lifted = Math.min(v.height, lifted + v.speed * delta);
+
+    updateResults();
+
+    if (lifted >= v.height) {
+      lifted = v.height;
+      updateResults();
+      stopAnimation();
+      return;
+    }
+
+    animationId = requestAnimationFrame(step);
+  }
+
+  animationId = requestAnimationFrame(step);
+}
+
+function reset() {
+  stopAnimation();
+  lifted = 0;
+  updateResults();
+}
+
+liftButton.addEventListener("click", liftAll);
+resetButton.addEventListener("click", reset);
+
+[typeInput, massInput, gravityInput, efficiencyInput,
+ heightInput, speedInput].forEach(input => {
+  input.addEventListener("input", () => {
+    if (!moving) {
+      lifted = Math.min(lifted, getValues().height);
+      updateResults();
+    }
+  });
+
+  input.addEventListener("change", () => {
+    input.value = input.value;
+    updateResults();
+  });
+});
+
+updateResults();
+</script>
+</body>
+</html>
